@@ -1,0 +1,32 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
+  <f:entry title="Alfred Dashboard">
+    <f:checkbox name="enabled" checked="${instance.enabled}" title="Show Alfred Dashboard"/>
+    <div style="padding: 10px; background: #f0f0f0; border-radius: 4px; margin-top: 10px;">
+      <p><strong>Enable this option to display the Alfred Dashboard at the top of this view.</strong></p>
+      <p>The dashboard will show:</p>
+      <ul>
+        <li>Total jobs in this view</li>
+        <li>Count of successful, failed, and unstable jobs</li>
+        <li>Aggregated failure analysis across all jobs</li>
+      </ul>
+    </div>
+  </f:entry>
+
+  <f:entry title="Failure Analysis">
+    <f:checkbox name="showFailureAnalysis" checked="${instance.showFailureAnalysis}" title="Show Failure Analysis Section"/>
+    <div style="padding: 10px; background: #f0f0f0; border-radius: 4px; margin-top: 10px;">
+      <p><strong>Enable this option to show the Failure Analysis section in the dashboard.</strong></p>
+      <p>The Failure Analysis section will provide:</p>
+      <ul>
+        <li>Total test failures count</li>
+        <li>Categorized failure types (Setup, API, Timeouts, etc.)</li>
+        <li>Top failure category</li>
+        <li>Detailed failure breakdown</li>
+      </ul>
+      <p style="color: #666; font-size: 12px; margin-top: 8px;">
+        <em>Note: This section only appears when there are test failures in the jobs.</em>
+      </p>
+    </div>
+  </f:entry>
+</j:jelly>

@@ -1,0 +1,30 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+  <t:td>
+    <j:set var="analysis" value="${it.getAnalysis(job)}"/>
+    <j:set var="summary" value="${it.getSummary(job)}"/>
+
+    <j:choose>
+      <j:when test="${analysis.failedTests == 0}">
+        <span style="color: #5cb85c; font-weight: 500;">
+          ✓ ${summary}
+        </span>
+      </j:when>
+      <j:otherwise>
+        <div style="font-size: 12px;">
+          <div style="color: #d9534f; font-weight: 600; margin-bottom: 5px;">
+            ${summary}
+          </div>
+          <div style="font-size: 10px; color: #666;">
+            <j:forEach var="entry" items="${analysis.failuresByCategory.entrySet()}" varStatus="status">
+              <j:if test="${!entry.value.isEmpty()}">
+                <j:if test="${status.index > 0}">, </j:if>
+                ${entry.key.displayName}: ${entry.value.size()}
+              </j:if>
+            </j:forEach>
+          </div>
+        </div>
+      </j:otherwise>
+    </j:choose>
+  </t:td>
+</j:jelly>

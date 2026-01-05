@@ -1,0 +1,593 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:l="/lib/layout">
+  <l:layout title="Alfred Failure Analysis - ${viewName}" norefresh="true">
+    <l:header>
+      <style>
+        /* Jenkins Analyzer Failure Analysis Page Styles */
+        .alfred-analysis-page {
+          max-width: 1400px;
+          margin: 0 auto;
+          padding: 20px;
+          font-family: Helvetica, Arial, sans-serif;
+        }
+
+        .alfred-page-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 24px;
+          padding-bottom: 16px;
+          border-bottom: 2px solid #d9d9d9;
+        }
+
+        .alfred-page-title {
+          font-size: 24px;
+          font-weight: 600;
+          color: #333;
+        }
+
+        .alfred-page-subtitle {
+          font-size: 14px;
+          color: #666;
+          margin-top: 4px;
+        }
+
+        .alfred-page-actions {
+          display: flex;
+          gap: 12px;
+        }
+
+        .alfred-btn {
+          padding: 8px 16px;
+          border-radius: 4px;
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 150ms ease;
+          border: none;
+          outline: none;
+        }
+
+        .alfred-btn-primary {
+          background: #5cb85c;
+          color: white;
+        }
+
+        .alfred-btn-primary:hover:not(:disabled) {
+          background: #4cae4c;
+        }
+
+        .alfred-btn-secondary {
+          background: #247ad5;
+          color: white;
+        }
+
+        .alfred-btn-secondary:hover:not(:disabled) {
+          background: #1c6ab8;
+        }
+
+        .alfred-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .alfred-loading-container {
+          text-align: center;
+          padding: 80px 20px;
+        }
+
+        .alfred-spinner {
+          display: inline-block;
+          width: 40px;
+          height: 40px;
+          border: 4px solid #f3f3f3;
+          border-top: 4px solid #006fe6;
+          border-radius: 50%;
+          animation: alfred-spin 1s linear infinite;
+          margin-bottom: 16px;
+        }
+
+        @keyframes alfred-spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+
+        .alfred-loading-text {
+          font-size: 16px;
+          color: #666;
+          margin-bottom: 8px;
+        }
+
+        .alfred-loading-subtext {
+          font-size: 13px;
+          color: #999;
+        }
+
+        .alfred-analysis-results {
+          display: none;
+        }
+
+        .alfred-analysis-results.visible {
+          display: block;
+        }
+
+        .alfred-summary-section {
+          background: linear-gradient(135deg, #fff5f5 0%, #ffe5e5 100%);
+          border: 1px solid #ffcccc;
+          border-radius: 8px;
+          padding: 20px;
+          margin-bottom: 24px;
+        }
+
+        .alfred-summary-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 20px;
+          text-align: center;
+        }
+
+        .alfred-summary-item-value {
+          font-size: 36px;
+          font-weight: 700;
+          font-family: Consolas, monospace;
+          margin-bottom: 8px;
+        }
+
+        .alfred-summary-item-label {
+          font-size: 12px;
+          color: #666;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          font-weight: 600;
+        }
+
+        .alfred-categories-section {
+          margin-bottom: 24px;
+        }
+
+        .alfred-section-title {
+          font-size: 18px;
+          font-weight: 600;
+          color: #333;
+          margin-bottom: 16px;
+          padding-bottom: 12px;
+          border-bottom: 1px solid #e9e9e9;
+        }
+
+        .alfred-categories-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 12px;
+        }
+
+        .alfred-category-card {
+          background: white;
+          border: 1px solid #d9d9d9;
+          border-radius: 4px;
+          padding: 16px;
+          transition: all 150ms ease;
+        }
+
+        .alfred-category-card:hover {
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+          border-color: #bbb;
+        }
+
+        .alfred-category-card.has-failures {
+          border-left: 3px solid #d9534f;
+        }
+
+        .alfred-category-name {
+          font-size: 11px;
+          font-weight: 600;
+          color: #555;
+          margin-bottom: 8px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .alfred-category-count {
+          font-size: 32px;
+          font-weight: 700;
+          color: #d9534f;
+          font-family: Consolas, monospace;
+        }
+
+        .alfred-category-count.zero {
+          color: #999;
+        }
+
+        .alfred-details-section {
+          margin-bottom: 24px;
+        }
+
+        .alfred-detail-card {
+          background: white;
+          border: 1px solid #d9d9d9;
+          border-left: 3px solid #d9534f;
+          border-radius: 4px;
+          padding: 16px;
+          margin-bottom: 12px;
+        }
+
+        .alfred-detail-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 12px;
+        }
+
+        .alfred-detail-title {
+          font-size: 14px;
+          font-weight: 600;
+          color: #333;
+        }
+
+        .alfred-detail-count {
+          font-size: 20px;
+          font-weight: 700;
+          color: #d9534f;
+          font-family: Consolas, monospace;
+        }
+
+        .alfred-affected-jobs {
+          font-size: 11px;
+          color: #777;
+          margin-bottom: 8px;
+        }
+
+        .alfred-examples {
+          margin-top: 12px;
+        }
+
+        .alfred-example-label {
+          font-size: 11px;
+          color: #666;
+          font-weight: 600;
+          margin-bottom: 8px;
+        }
+
+        .alfred-example-item {
+          background: #fafafa;
+          padding: 8px;
+          margin-top: 6px;
+          border-radius: 3px;
+          font-size: 11px;
+        }
+
+        .alfred-example-test {
+          font-family: Consolas, monospace;
+          color: #333;
+          margin-bottom: 4px;
+        }
+
+        .alfred-example-error {
+          color: #d9534f;
+          font-size: 10px;
+          margin-bottom: 4px;
+        }
+
+        .alfred-example-job {
+          color: #777;
+          font-size: 10px;
+        }
+
+        .alfred-apis-section {
+          background: white;
+          border: 1px solid #d9d9d9;
+          border-radius: 4px;
+          padding: 16px;
+          margin-bottom: 24px;
+        }
+
+        .alfred-api-list {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+        }
+
+        .alfred-api-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 8px 10px;
+          margin-bottom: 6px;
+          background: #fafafa;
+          border-radius: 3px;
+          font-size: 12px;
+        }
+
+        .alfred-api-endpoint {
+          font-family: Consolas, monospace;
+          color: #333;
+          flex: 1;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .alfred-api-count {
+          background: #d9534f;
+          color: white;
+          padding: 3px 10px;
+          border-radius: 12px;
+          font-size: 11px;
+          font-weight: 600;
+          margin-left: 12px;
+        }
+
+        .alfred-chart-section {
+          background: white;
+          border: 1px solid #d9d9d9;
+          border-radius: 4px;
+          padding: 16px;
+          margin-bottom: 24px;
+        }
+
+        .alfred-chart {
+          display: flex;
+          align-items: flex-end;
+          height: 200px;
+          gap: 10px;
+          margin-top: 16px;
+          position: relative;
+        }
+
+        .alfred-chart-bar {
+          flex: 1;
+          background: linear-gradient(to top, #d9534f, #f48771);
+          border-radius: 4px 4px 0 0;
+          position: relative;
+          transition: all 200ms ease;
+          min-height: 10px;
+        }
+
+        .alfred-chart-bar:hover {
+          opacity: 0.8;
+          transform: translateY(-3px);
+        }
+
+        .alfred-chart-label {
+          position: absolute;
+          bottom: -30px;
+          left: 50%;
+          transform: translateX(-50%);
+          font-size: 10px;
+          color: #666;
+          white-space: nowrap;
+          width: 100%;
+          text-align: center;
+        }
+
+        .alfred-chart-value {
+          position: absolute;
+          top: -22px;
+          left: 50%;
+          transform: translateX(-50%);
+          font-size: 12px;
+          font-weight: 600;
+          color: #333;
+          font-family: Consolas, monospace;
+        }
+
+        .stat-failure { color: #d9534f; }
+        .stat-unstable { color: #f0ad4e; }
+      </style>
+    </l:header>
+
+    <l:main-panel>
+      <div class="alfred-analysis-page">
+        <div class="alfred-page-header">
+          <div>
+            <div class="alfred-page-title">Failure Analysis</div>
+            <div class="alfred-page-subtitle">View: ${viewName}</div>
+          </div>
+          <div class="alfred-page-actions">
+            <button id="refresh-btn" class="alfred-btn alfred-btn-primary" onclick="refreshAnalysis()">
+              Refresh Analysis
+            </button>
+            <button class="alfred-btn alfred-btn-secondary" onclick="window.history.back()">
+              Back to View
+            </button>
+          </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading-container" class="alfred-loading-container">
+          <div class="alfred-spinner"></div>
+          <div class="alfred-loading-text">Analyzing Test Failures...</div>
+          <div class="alfred-loading-subtext">This may take a moment depending on the number of jobs</div>
+        </div>
+
+        <!-- Analysis Results -->
+        <div id="analysis-results" class="alfred-analysis-results">
+          <!-- Results will be injected here by JavaScript -->
+        </div>
+      </div>
+
+      <script type="text/javascript">
+        <![CDATA[
+        // Analysis page JavaScript
+        const viewName = '${viewName}';
+
+        // Run analysis on page load
+        document.addEventListener('DOMContentLoaded', function() {
+          performAnalysis();
+        });
+
+        async function performAnalysis() {
+          const loadingContainer = document.getElementById('loading-container');
+          const resultsContainer = document.getElementById('analysis-results');
+          const refreshBtn = document.getElementById('refresh-btn');
+
+          try {
+            // Show loading
+            loadingContainer.style.display = 'block';
+            resultsContainer.classList.remove('visible');
+            if (refreshBtn) refreshBtn.disabled = true;
+
+            // Fetch analysis data from API
+            const response = await fetch(`${rootURL}/alfred-api/view?name=${encodeURIComponent(viewName)}`);
+
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            console.log('Analysis data received:', data);
+
+            // Render the analysis
+            renderAnalysis(data);
+
+            // Hide loading, show results
+            loadingContainer.style.display = 'none';
+            resultsContainer.classList.add('visible');
+            if (refreshBtn) refreshBtn.disabled = false;
+
+          } catch (error) {
+            console.error('Error performing analysis:', error);
+            loadingContainer.innerHTML = `
+              <div style="color: #d9534f; font-size: 16px; font-weight: 600; margin-bottom: 8px;">
+                ⚠️ Error Loading Analysis
+              </div>
+              <div style="color: #666; font-size: 13px; margin-bottom: 16px;">
+                ${escapeHtml(error.message)}
+              </div>
+              <button class="alfred-btn alfred-btn-primary" onclick="performAnalysis()">
+                Try Again
+              </button>
+            `;
+            if (refreshBtn) refreshBtn.disabled = false;
+          }
+        }
+
+        function refreshAnalysis() {
+          performAnalysis();
+        }
+
+        function renderAnalysis(data) {
+          const resultsContainer = document.getElementById('analysis-results');
+
+          if (!data || data.totalFailures === 0) {
+            resultsContainer.innerHTML = `
+              <div style="text-align: center; padding: 60px 20px; background: white; border: 1px solid #5cb85c; border-radius: 8px; color: #5cb85c;">
+                <div style="font-size: 48px; margin-bottom: 16px;">✅</div>
+                <div style="font-size: 20px; font-weight: 600; margin-bottom: 8px;">No Failures Detected</div>
+                <div style="font-size: 14px; color: #666;">All jobs in this view are passing!</div>
+              </div>
+            `;
+            return;
+          }
+
+          let html = '';
+
+          // Summary Section
+          const categoriesWithFailures = data.categoriesWithFailures || 0;
+          const topCategory = data.topCategory || 'Unknown';
+
+          html += `
+            <div class="alfred-summary-section">
+              <div class="alfred-summary-grid">
+                <div>
+                  <div class="alfred-summary-item-value stat-failure">${data.totalFailures}</div>
+                  <div class="alfred-summary-item-label">Total Failed Tests</div>
+                </div>
+                <div>
+                  <div class="alfred-summary-item-value stat-unstable">${categoriesWithFailures}</div>
+                  <div class="alfred-summary-item-label">Failure Types</div>
+                </div>
+                <div>
+                  <div class="alfred-summary-item-value stat-failure" style="font-size: 18px;">${escapeHtml(topCategory)}</div>
+                  <div class="alfred-summary-item-label">Top Issue</div>
+                </div>
+              </div>
+            </div>
+          `;
+
+          // Categories Grid
+          if (data.categoryCount && Object.keys(data.categoryCount).length > 0) {
+            html += `
+              <div class="alfred-categories-section">
+                <div class="alfred-section-title">Failure Categories</div>
+                <div class="alfred-categories-grid">
+            `;
+
+            for (const [category, count] of Object.entries(data.categoryCount)) {
+              const hasFailures = count > 0;
+              html += `
+                <div class="alfred-category-card ${hasFailures ? 'has-failures' : ''}">
+                  <div class="alfred-category-name">${escapeHtml(category)}</div>
+                  <div class="alfred-category-count ${hasFailures ? '' : 'zero'}">${count}</div>
+                </div>
+              `;
+            }
+
+            html += '</div></div>';
+          }
+
+          // Top Failed APIs
+          if (data.topFailedApis && data.topFailedApis.length > 0) {
+            html += `
+              <div class="alfred-apis-section">
+                <div class="alfred-section-title">Top Failed API Endpoints</div>
+                <ul class="alfred-api-list">
+            `;
+
+            data.topFailedApis.forEach(api => {
+              html += `
+                <li class="alfred-api-item">
+                  <span class="alfred-api-endpoint" title="${escapeHtml(api.endpoint)}">${escapeHtml(api.endpoint)}</span>
+                  <span class="alfred-api-count">${api.count}</span>
+                </li>
+              `;
+            });
+
+            html += '</ul></div>';
+          }
+
+          // Failure Distribution Chart
+          if (data.categoryCount && Object.keys(data.categoryCount).length > 0) {
+            const categories = Object.entries(data.categoryCount)
+              .filter(([_, count]) => count > 0)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 8);
+
+            if (categories.length > 0) {
+              const maxCount = Math.max(...categories.map(([_, count]) => count));
+
+              html += `
+                <div class="alfred-chart-section">
+                  <div class="alfred-section-title">Failure Distribution Chart</div>
+                  <div class="alfred-chart">
+              `;
+
+              categories.forEach(([category, count]) => {
+                const heightPercent = (count / maxCount) * 100;
+                html += `
+                  <div class="alfred-chart-bar" style="height: ${heightPercent}%;">
+                    <div class="alfred-chart-value">${count}</div>
+                    <div class="alfred-chart-label">${escapeHtml(category)}</div>
+                  </div>
+                `;
+              });
+
+              html += '</div></div>';
+            }
+          }
+
+          resultsContainer.innerHTML = html;
+        }
+
+        function escapeHtml(text) {
+          if (!text) return '';
+          const div = document.createElement('div');
+          div.textContent = text;
+          return div.innerHTML;
+        }
+        ]]>
+      </script>
+    </l:main-panel>
+  </l:layout>
+</j:jelly>

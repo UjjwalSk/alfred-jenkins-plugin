@@ -1,0 +1,1121 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define"
+         xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+
+  <j:if test="${it.shouldShowDashboard()}">
+    <j:set var="currentView" value="${it.currentView}"/>
+    <j:set var="stats" value="${it.stats}"/>
+
+    <!-- Dashboard Container (will be repositioned by JavaScript) -->
+    <div id="alfred-dashboard-container" class="alfred-dashboard" style="background: #f4f4f8; border-radius: 15px; padding: 15px 18px; margin: 12px 0; font-family: Helvetica, Arial, sans-serif; display: none; animation: slideIn 200ms ease;">
+
+    <style>
+      @keyframes slideIn {
+        from {
+          opacity: 0.7;
+          transform: translateY(8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes pulseValue {
+        0%, 100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.05);
+        }
+      }
+
+      .alfred-stat-value {
+        transition: all 250ms ease;
+      }
+
+      .alfred-stat-value.updating {
+        animation: pulseValue 400ms ease;
+      }
+    </style>
+
+      <!-- Header -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <div style="font-size: 14px; font-weight: 600; color: #333; display: flex; align-items: center; gap: 8px;">
+          ${currentView.viewName} Status
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <span style="font-size: 11px; color: #666; font-family: Consolas, monospace;" id="alfred-timestamp">Initializing...</span>
+          <button id="alfred-copy-btn" onclick="copyResultsToClipboard()"
+                  style="background: #5cb85c; color: white; border: none; outline: none; padding: 4px 10px; border-radius: 3px; font-size: 11px; cursor: pointer; transition: all 150ms ease; font-weight: normal;">
+            Copy Results
+          </button>
+          <button onclick="location.reload();"
+                  style="background: #247ad5ff; color: white; border: none; outline: none; padding: 4px 10px; border-radius: 3px; font-size: 11px; cursor: pointer; transition: all 150ms ease; font-weight: normal;">
+            Refresh
+          </button>
+          <button id="alfred-collapse-btn" onclick="toggleDashboardCollapse()"
+                  style="background: #f4f4f8; border: 1px solid #ccc; color: #333; padding: 4px 10px; border-radius: 3px; font-size: 11px; cursor: pointer; transition: all 150ms ease;">
+            ▼ Collapse
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats Grid -->
+      <div id="alfred-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px;">
+
+        <!-- Total Jobs -->
+        <div style="background: white; border-radius: 3px; padding: 14px; text-align: center; transition: box-shadow 150ms ease, border-color 150ms ease;">
+          <div id="alfred-stat-total" class="alfred-stat-value" style="font-size: 36px; font-weight: 700; font-family: Consolas, monospace; margin-bottom: 6px; line-height: 1; color: #006fe6;">
+            ${stats.totalJobs}
+          </div>
+          <div style="font-size: 11px; color: #777; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">
+            Total Jobs
+          </div>
+        </div>
+
+        <!-- Successful -->
+        <div style="background: white; border-radius: 3px; padding: 14px; text-align: center; transition: box-shadow 150ms ease, border-color 150ms ease;">
+          <div id="alfred-stat-success" class="alfred-stat-value" style="font-size: 36px; font-weight: 700; font-family: Consolas, monospace; margin-bottom: 6px; line-height: 1; color: #5cb85c;">
+            ${stats.successfulJobs}
+          </div>
+          <div style="font-size: 11px; color: #777; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">
+            Successful
+          </div>
+        </div>
+
+        <!-- Failed -->
+        <div style="background: white; border-radius: 3px; padding: 14px; text-align: center; transition: box-shadow 150ms ease, border-color 150ms ease;">
+          <div id="alfred-stat-failed" class="alfred-stat-value" style="font-size: 36px; font-weight: 700; font-family: Consolas, monospace; margin-bottom: 6px; line-height: 1; color: #d9534f;">
+            ${stats.failedJobs}
+          </div>
+          <div style="font-size: 11px; color: #777; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">
+            Failed
+          </div>
+        </div>
+
+        <!-- Unstable -->
+        <div style="background: white; border-radius: 3px; padding: 14px; text-align: center; transition: box-shadow 150ms ease, border-color 150ms ease;">
+          <div id="alfred-stat-unstable" class="alfred-stat-value" style="font-size: 36px; font-weight: 700; font-family: Consolas, monospace; margin-bottom: 6px; line-height: 1; color: #f0ad4e;">
+            ${stats.unstableJobs}
+          </div>
+          <div style="font-size: 11px; color: #777; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">
+            Unstable
+          </div>
+        </div>
+      </div>
+
+      <!-- Failure Analysis Section (only shown if enabled in configuration and there are failures/unstable jobs) -->
+      <j:if test="${it.shouldShowFailureAnalysis() and (stats.failedJobs > 0 or stats.unstableJobs > 0)}">
+        <div id="alfred-failure-analysis" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #d9d9d9;">
+          <div id="alfred-analysis-header" onclick="toggleFailureAnalysis()" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 8px 0; transition: background 150ms ease;">
+            <div style="font-size: 13px; font-weight: 600; color: #333; display: flex; align-items: center; gap: 8px;">
+              <span id="alfred-analysis-icon" style="transition: transform 200ms ease; color: #006fe6; font-size: 10px; font-weight: bold;">▶</span>
+              <span>Failure Analysis</span>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <button id="alfred-analyze-btn" onclick="event.stopPropagation(); performInlineAnalysis();"
+                      style="background: #5cb85c; color: white; border: none; outline: none; padding: 4px 10px; border-radius: 3px; font-size: 11px; cursor: pointer; transition: all 150ms ease; font-weight: normal;">
+                Analyze Failures
+              </button>
+            </div>
+          </div>
+
+          <div id="alfred-analysis-content" style="max-height: 0; overflow: hidden; transition: max-height 300ms ease;">
+            <div style="margin-top: 12px;">
+              <j:choose>
+                <j:when test="${stats.hasFailures()}">
+                  <!-- Show detailed analysis when available -->
+                  <!-- Total Failures -->
+                  <div style="padding: 12px; background: linear-gradient(135deg, #fff5f5 0%, #ffe5e5 100%); border: 1px solid #ffcccc; border-radius: 3px; margin-bottom: 12px;">
+                    <div style="font-size: 10px; color: #666; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.5px;">Total Test Failures</div>
+                    <div style="font-size: 24px; font-weight: 700; color: #d9534f; font-family: Consolas, monospace;">${stats.totalFailures}</div>
+                  </div>
+
+                  <!-- Top Category -->
+                  <j:if test="${stats.topCategoryCount > 0}">
+                    <div style="padding: 12px; background: white; border: 1px solid #d9d9d9; border-left: 3px solid #d9534f; border-radius: 3px; margin-bottom: 10px;">
+                      <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="font-size: 12px; font-weight: 600; color: #333;">Top Failure Category</div>
+                        <div style="font-size: 18px; font-weight: 700; color: #d9534f; font-family: Consolas, monospace;">${stats.topCategoryCount}</div>
+                      </div>
+                      <div style="font-size: 10px; color: #777; margin-top: 4px;">${stats.topCategory.displayName}</div>
+                    </div>
+                  </j:if>
+
+                  <!-- Category Breakdown -->
+                  <j:if test="${!stats.categoryCount.isEmpty()}">
+                    <div style="margin-top: 12px;">
+                      <div style="font-size: 12px; font-weight: 600; color: #333; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #e9e9e9;">Failure Categories</div>
+                      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                        <j:forEach var="entry" items="${stats.categoryCount.entrySet()}">
+                          <div style="background: white; border: 1px solid #d9d9d9; border-radius: 3px; padding: 12px; transition: all 150ms ease; border-left: 3px solid #d9534f;">
+                            <div style="font-size: 11px; font-weight: 600; color: #555; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">${entry.key.displayName}</div>
+                            <div style="font-size: 28px; font-weight: 700; color: #d9534f; font-family: Consolas, monospace;">${entry.value}</div>
+                          </div>
+                        </j:forEach>
+                      </div>
+                    </div>
+                  </j:if>
+                </j:when>
+                <j:otherwise>
+                  <!-- Show placeholder when detailed analysis is not yet available -->
+                  <div style="padding: 20px; background: white; border: 1px solid #e0e0e0; border-radius: 3px; text-align: center;">
+                    <div style="font-size: 13px; color: #666; margin-bottom: 10px;">
+                      ⚠️ Detailed failure analysis not yet available
+                    </div>
+                    <div style="font-size: 12px; color: #999; line-height: 1.6;">
+                      <p style="margin: 8px 0;">Click "Analyze Failures" to generate a detailed analysis report.</p>
+                      <p style="margin: 8px 0;">Or trigger a new build to automatically analyze test failures.</p>
+                    </div>
+                    <div style="margin-top: 12px; padding: 10px; background: #f9f9f9; border-radius: 3px;">
+                      <div style="font-size: 11px; color: #777; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Current Status</div>
+                      <div style="font-size: 13px; color: #d9534f; font-weight: 600;">
+                        ${stats.failedJobs} Failed • ${stats.unstableJobs} Unstable
+                      </div>
+                    </div>
+                  </div>
+                </j:otherwise>
+              </j:choose>
+            </div>
+          </div>
+        </div>
+      </j:if>
+
+      <!-- No Failures Message -->
+      <j:if test="${stats.failedJobs == 0 and stats.unstableJobs == 0 and stats.totalJobs > 0}">
+        <div style="background: white; border: 1px solid #5cb85c; color: #5cb85c; padding: 12px; border-radius: 3px; text-align: center; font-size: 12px; font-weight: 600; margin-top: 16px;">
+          ✅ All jobs are passing - No failures detected!
+        </div>
+      </j:if>
+    </div>
+
+    <script type="text/javascript">
+      <![CDATA[
+      (function() {
+        // Store job data globally (like enhancedViewState.jobsData in extension)
+        window.alfredJobsData = new Map();
+
+        // Auto-refresh interval (180 seconds like extension)
+        var autoRefreshInterval = null;
+
+        // Update timestamp
+        var timestampElement = document.getElementById('alfred-timestamp');
+        if (timestampElement) {
+          timestampElement.textContent = 'Updated: ' + new Date().toLocaleString();
+        }
+
+        // Helper function to animate counter value change
+        function animateStatValue(elementId, newValue) {
+          var element = document.getElementById(elementId);
+          if (!element) return;
+
+          var oldValue = parseInt(element.textContent) || 0;
+          if (oldValue === newValue) return;
+
+          // Add animation class
+          element.classList.add('updating');
+
+          // Update value
+          element.textContent = newValue;
+
+          // Remove animation class after animation completes
+          setTimeout(function() {
+            element.classList.remove('updating');
+          }, 400);
+        }
+
+        // Update dashboard stats with animation
+        function updateDashboardStats(stats) {
+          console.log('Updating dashboard stats:', stats);
+
+          // Animate each stat value
+          animateStatValue('alfred-stat-total', stats.total);
+          animateStatValue('alfred-stat-success', stats.success);
+          animateStatValue('alfred-stat-failed', stats.failed);
+          animateStatValue('alfred-stat-unstable', stats.unstable);
+
+          // Update timestamp
+          var timestampElement = document.getElementById('alfred-timestamp');
+          if (timestampElement) {
+            timestampElement.textContent = 'Updated: ' + new Date().toLocaleString();
+          }
+        }
+
+        // Toggle dashboard collapse/expand
+        window.toggleDashboardCollapse = function() {
+          var dashboard = document.getElementById('alfred-dashboard-container');
+          var statsGrid = document.getElementById('alfred-stats-grid');
+          var failureAnalysis = document.getElementById('alfred-failure-analysis');
+          var collapseBtn = document.getElementById('alfred-collapse-btn');
+
+          if (statsGrid.style.display === 'none') {
+            // Expand
+            statsGrid.style.display = 'grid';
+            if (failureAnalysis) failureAnalysis.style.display = 'block';
+            collapseBtn.textContent = '▼ Collapse';
+          } else {
+            // Collapse
+            statsGrid.style.display = 'none';
+            if (failureAnalysis) failureAnalysis.style.display = 'none';
+            collapseBtn.textContent = '▲ Expand';
+          }
+        };
+
+        // Perform inline failure analysis
+        window.performInlineAnalysis = async function() {
+          var analyzeBtn = document.getElementById('alfred-analyze-btn');
+          var content = document.getElementById('alfred-analysis-content');
+          var icon = document.getElementById('alfred-analysis-icon');
+          var originalBtnText = analyzeBtn.textContent;
+
+          try {
+            // Show loading state
+            analyzeBtn.disabled = true;
+            analyzeBtn.textContent = '⏳ Analyzing...';
+
+            // Get current view name from URL or default
+            var viewName = '${currentView.viewName}';
+
+            // Fetch analysis data from API
+            var response = await fetch(rootURL + '/alfred-api/view?name=' + encodeURIComponent(viewName));
+
+            if (!response.ok) {
+              throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+            }
+
+            var data = await response.json();
+
+            console.log('Analysis data received:', data);
+
+            // Render the analysis results
+            renderInlineAnalysis(data, content);
+
+            // Expand the section to show results
+            content.style.maxHeight = '2000px';
+            icon.style.transform = 'rotate(90deg)';
+
+            // Update button text
+            analyzeBtn.textContent = '✅ Analysis Complete';
+            setTimeout(function() {
+              analyzeBtn.disabled = false;
+              analyzeBtn.textContent = originalBtnText;
+            }, 2000);
+
+          } catch (error) {
+            console.error('Error performing analysis:', error);
+
+            // Show error message
+            content.querySelector('div').innerHTML = '<div style="padding: 20px; background: #fff5f5; border: 1px solid #ffcccc; border-radius: 3px; text-align: center;">' +
+              '<div style="color: #d9534f; font-size: 16px; font-weight: 600; margin-bottom: 8px;">⚠️ Error Loading Analysis</div>' +
+              '<div style="color: #666; font-size: 13px;">' + escapeHtml(error.message) + '</div>' +
+              '</div>';
+
+            // Expand to show error
+            content.style.maxHeight = '2000px';
+            icon.style.transform = 'rotate(90deg)';
+
+            // Reset button
+            analyzeBtn.disabled = false;
+            analyzeBtn.textContent = originalBtnText;
+          }
+        };
+
+        // Render inline analysis results
+        function renderInlineAnalysis(data, contentElement) {
+          var innerDiv = contentElement.querySelector('div');
+          if (!innerDiv) return;
+
+          if (!data || data.totalFailures === 0) {
+            innerDiv.innerHTML = '<div style="padding: 20px; background: white; border: 1px solid #5cb85c; border-radius: 3px; text-align: center; color: #5cb85c;">' +
+              '<div style="font-size: 48px; margin-bottom: 16px;">✅</div>' +
+              '<div style="font-size: 20px; font-weight: 600; margin-bottom: 8px;">No Failures Detected</div>' +
+              '<div style="font-size: 14px; color: #666;">All jobs in this view are passing!</div>' +
+              '</div>';
+            return;
+          }
+
+          var html = '';
+
+          // Total Failures Summary
+          html += '<div style="padding: 12px; background: linear-gradient(135deg, #fff5f5 0%, #ffe5e5 100%); border: 1px solid #ffcccc; border-radius: 3px; margin-bottom: 12px;">' +
+            '<div style="font-size: 10px; color: #666; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.5px;">Total Test Failures</div>' +
+            '<div style="font-size: 24px; font-weight: 700; color: #d9534f; font-family: Consolas, monospace;">' + data.totalFailures + '</div>' +
+            '</div>';
+
+          // Top Category (if available)
+          if (data.topCategoryCount && data.topCategoryCount > 0) {
+            html += '<div style="padding: 12px; background: white; border: 1px solid #d9d9d9; border-left: 3px solid #d9534f; border-radius: 3px; margin-bottom: 10px;">' +
+              '<div style="display: flex; justify-content: space-between; align-items: center;">' +
+              '<div style="font-size: 12px; font-weight: 600; color: #333;">Top Failure Category</div>' +
+              '<div style="font-size: 18px; font-weight: 700; color: #d9534f; font-family: Consolas, monospace;">' + data.topCategoryCount + '</div>' +
+              '</div>' +
+              '<div style="font-size: 10px; color: #777; margin-top: 4px;">' + escapeHtml(data.topCategory || 'Unknown') + '</div>' +
+              '</div>';
+          }
+
+          // Category Breakdown Grid
+          if (data.categoryCount && Object.keys(data.categoryCount).length > 0) {
+            html += '<div style="margin-top: 12px;">' +
+              '<div style="font-size: 12px; font-weight: 600; color: #333; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #e9e9e9;">Failure Categories</div>' +
+              '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">';
+
+            for (var category in data.categoryCount) {
+              var count = data.categoryCount[category];
+              html += '<div style="background: white; border: 1px solid #d9d9d9; border-radius: 3px; padding: 12px; transition: all 150ms ease; border-left: 3px solid #d9534f;">' +
+                '<div style="font-size: 11px; font-weight: 600; color: #555; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">' + escapeHtml(category) + '</div>' +
+                '<div style="font-size: 28px; font-weight: 700; color: #d9534f; font-family: Consolas, monospace;">' + count + '</div>' +
+                '</div>';
+            }
+
+            html += '</div></div>';
+          }
+
+          // Top Failed APIs (if available)
+          if (data.topFailedApis && data.topFailedApis.length > 0) {
+            html += '<div style="background: white; border: 1px solid #d9d9d9; border-radius: 3px; padding: 16px; margin-top: 12px;">' +
+              '<div style="font-size: 12px; font-weight: 600; color: #333; margin-bottom: 12px;">Top Failed API Endpoints</div>' +
+              '<div style="display: flex; flex-direction: column; gap: 6px;">';
+
+            data.topFailedApis.forEach(function(api) {
+              html += '<div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: #fafafa; border-radius: 3px;">' +
+                '<span style="font-family: Consolas, monospace; font-size: 12px; color: #333; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="' + escapeHtml(api.endpoint) + '">' + escapeHtml(api.endpoint) + '</span>' +
+                '<span style="background: #d9534f; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-left: 12px;">' + api.count + '</span>' +
+                '</div>';
+            });
+
+            html += '</div></div>';
+          }
+
+          innerDiv.innerHTML = html;
+        }
+
+        // Toggle failure analysis section
+        window.toggleFailureAnalysis = function() {
+          var header = document.getElementById('alfred-analysis-header');
+          var content = document.getElementById('alfred-analysis-content');
+          var icon = document.getElementById('alfred-analysis-icon');
+
+          if (content.style.maxHeight === '0px' || content.style.maxHeight === '') {
+            // Expand
+            content.style.maxHeight = '2000px';
+            icon.style.transform = 'rotate(90deg)';
+          } else {
+            // Collapse
+            content.style.maxHeight = '0';
+            icon.style.transform = 'rotate(0deg)';
+          }
+        };
+
+        // Helper function to escape HTML
+        function escapeHtml(text) {
+          if (!text) return '';
+          var div = document.createElement('div');
+          div.textContent = text;
+          return div.innerHTML;
+        }
+
+        // Helper function to escape pipe characters in Markdown table cells
+        function escapeMarkdownPipes(text) {
+          if (!text) return '';
+          return text.replace(/\|/g, '\\|');
+        }
+
+        // Copy results to clipboard as Markdown table (exact copy from extension)
+        window.copyResultsToClipboard = async function() {
+          var btn = document.getElementById('alfred-copy-btn');
+          var originalText = btn.textContent;
+
+          try {
+            // Disable button during copy
+            btn.disabled = true;
+            btn.textContent = '⏳ Copying...';
+
+            // Get all jobs from stored data
+            var jobs = Array.from(window.alfredJobsData.values());
+
+            console.log('Copy Results: Found', jobs.length, 'jobs in alfredJobsData');
+            if (jobs.length > 0) {
+              console.log('Sample job data:', jobs[0]);
+              console.log('Jobs with lastBuildUrl:', jobs.filter(function(j) { return j.lastBuildUrl; }).length);
+            }
+
+            if (!jobs || jobs.length === 0) {
+              console.warn('No job data available to copy');
+              btn.textContent = '❌ No Data';
+              setTimeout(function() {
+                btn.disabled = false;
+                btn.textContent = originalText;
+              }, 2000);
+              return;
+            }
+
+            // Sort jobs alphabetically by name
+            jobs.sort(function(a, b) {
+              var nameA = (a.name || '').toLowerCase();
+              var nameB = (b.name || '').toLowerCase();
+              return nameA.localeCompare(nameB);
+            });
+
+            // Build Markdown table
+            var markdown = '| Job Name | Owner | Status | Date | #Total | #Failed | #Skipped | Comments |\n';
+            markdown += '|----------|-------|--------|------|--------|---------|----------|----------|\n';
+
+            for (var i = 0; i < jobs.length; i++) {
+              var job = jobs[i];
+
+              // Job Name as Markdown link
+              var jobName = escapeMarkdownPipes(job.name || 'Unknown');
+              var jobUrl = job.url || '#';
+              var jobNameLink = '[' + jobName + '](' + jobUrl + ')';
+
+              // Owner (placeholder - Jenkins doesn't typically expose this in view data)
+              var owner = '';
+
+              // Status with emoji
+              var status = job.actualStatus || job.status || 'UNKNOWN';
+              var statusEmoji = '';
+              switch (status) {
+                case 'SUCCESS':
+                  statusEmoji = '🟢 Success';
+                  break;
+                case 'FAILURE':
+                  statusEmoji = '🔴 Failed';
+                  break;
+                case 'UNSTABLE':
+                  statusEmoji = '🟠 Unstable';
+                  break;
+                case 'ABORTED':
+                  statusEmoji = '⚫ Aborted';
+                  break;
+                default:
+                  statusEmoji = '⚪ Unknown';
+              }
+
+              // Use cached data from fetchJobData() - no need for additional API calls
+              var buildDate = job.buildTimestamp
+                ? new Date(job.buildTimestamp).toISOString().split('T')[0]
+                : '-';
+
+              var totalTests = job.totalTests !== undefined ? job.totalTests : '-';
+              var failedTests = job.failedTests !== undefined ? job.failedTests : '-';
+              var skippedTests = job.skippedTests !== undefined ? job.skippedTests : '-';
+
+              // Comments - use actual build number and URL from cached data
+              var comments = (job.buildNumber && job.buildUrl)
+                ? '[Build #' + job.buildNumber + '](' + job.buildUrl + ')'
+                : '-';
+
+              // Build row
+              markdown += '| ' + jobNameLink + ' | ' + owner + ' | ' + statusEmoji + ' | ' + buildDate + ' | ' + totalTests + ' | ' + failedTests + ' | ' + skippedTests + ' | ' + comments + ' |\n';
+            }
+
+            // Copy to clipboard
+            await navigator.clipboard.writeText(markdown);
+
+            // Show success feedback
+            btn.textContent = '✅ Copied!';
+            btn.classList.add('copied');
+
+            setTimeout(function() {
+              btn.disabled = false;
+              btn.textContent = originalText;
+              btn.classList.remove('copied');
+            }, 2000);
+
+            console.log('Markdown table copied to clipboard');
+          } catch (error) {
+            console.error('Error copying to clipboard:', error);
+            btn.textContent = '❌ Failed';
+            setTimeout(function() {
+              btn.disabled = false;
+              btn.textContent = originalText;
+            }, 2000);
+          }
+        };
+
+        // Reposition dashboard to correct location on page
+        function repositionDashboard() {
+          var dashboard = document.getElementById('alfred-dashboard-container');
+          if (!dashboard) return;
+
+          // Find the main panel where jobs are listed
+          // Try multiple selectors to find the jobs container
+          var targets = [
+            document.querySelector('#projectstatus'),  // List view jobs table
+            document.querySelector('.pane.stripped'),  // Alternative jobs container
+            document.querySelector('#main-panel > div'),  // Main panel first div
+            document.querySelector('#main-panel')  // Fallback to main panel itself
+          ];
+
+          var targetContainer = null;
+          for (var i = 0; i < targets.length; i++) {
+            if (targets[i]) {
+              targetContainer = targets[i];
+              break;
+            }
+          }
+
+          if (targetContainer) {
+            // Insert dashboard before the jobs container
+            targetContainer.parentNode.insertBefore(dashboard, targetContainer);
+            dashboard.style.display = 'block';
+          } else {
+            // Fallback: try to find #main-panel and append at the beginning
+            var mainPanel = document.querySelector('#main-panel');
+            if (mainPanel && mainPanel.firstChild) {
+              mainPanel.insertBefore(dashboard, mainPanel.firstChild);
+              dashboard.style.display = 'block';
+            }
+          }
+        }
+
+        // Fetch job data from Jenkins API and populate alfredJobsData
+        async function fetchJobData() {
+          console.log('Fetching job data for Copy Results...');
+
+          try {
+            // Extract jobs from current view's table
+            var jobRows = document.querySelectorAll('tr[id^="job_"], table#projectstatus tr');
+            var jobs = [];
+
+            jobRows.forEach(function(row) {
+              try {
+                var jobLink = row.querySelector('a.model-link, a[href*="/job/"]');
+                if (!jobLink) return;
+
+                var jobName = jobLink.textContent.trim();
+                var jobUrl = jobLink.href;
+
+                // Skip if not a valid job link
+                if (!jobUrl.includes('/job/')) return;
+
+                // Get status from icon
+                var status = 'UNKNOWN';
+                var statusIcon = row.querySelector('.icon-blue, .icon-red, .icon-yellow, .icon-aborted, .icon-disabled');
+                if (statusIcon) {
+                  var iconClass = statusIcon.className;
+                  if (iconClass.includes('blue')) status = 'SUCCESS';
+                  else if (iconClass.includes('red')) status = 'FAILURE';
+                  else if (iconClass.includes('yellow')) status = 'UNSTABLE';
+                  else if (iconClass.includes('aborted')) status = 'ABORTED';
+                }
+
+                jobs.push({
+                  name: jobName,
+                  url: jobUrl,
+                  status: status
+                });
+
+                console.log('Extracted job:', jobName, 'with status:', status);
+              } catch (error) {
+                console.error('Error extracting job from row:', error);
+              }
+            });
+
+            console.log('Found', jobs.length, 'jobs to fetch detailed data for');
+
+            // Initialize counters
+            var totalJobs = jobs.length;
+            var successCount = 0;
+            var failureCount = 0;
+            var unstableCount = 0;
+
+            // Fetch detailed data for each job (in batches of 5)
+            var BATCH_SIZE = 5;
+            for (var i = 0; i < jobs.length; i += BATCH_SIZE) {
+              var batch = jobs.slice(i, Math.min(i + BATCH_SIZE, jobs.length));
+
+              var batchPromises = batch.map(function(job) {
+                return fetchJobDetails(job);
+              });
+
+              await Promise.all(batchPromises);
+
+              // Count statuses after each batch (progressive update like extension)
+              successCount = 0;
+              failureCount = 0;
+              unstableCount = 0;
+
+              Array.from(window.alfredJobsData.values()).forEach(function(job) {
+                var status = job.actualStatus || job.status;
+                if (status === 'SUCCESS') successCount++;
+                else if (status === 'FAILURE') failureCount++;
+                else if (status === 'UNSTABLE') unstableCount++;
+              });
+
+              // Update dashboard stats progressively after each batch
+              updateDashboardStats({
+                total: totalJobs,
+                success: successCount,
+                failed: failureCount,
+                unstable: unstableCount
+              });
+            }
+
+            console.log('Job data fetch complete. Total jobs:', window.alfredJobsData.size);
+          } catch (error) {
+            console.error('Error fetching job data:', error);
+          }
+        }
+
+        // Fetch detailed information for a single job
+        async function fetchJobDetails(job) {
+          try {
+            var apiUrl = job.url + 'lastCompletedBuild/api/json?tree=number,url,result,timestamp,actions[totalCount,failCount,skipCount,passCount]';
+            console.log('Fetching:', apiUrl);
+
+            var response = await fetch(apiUrl);
+
+            if (response.ok) {
+              var data = await response.json();
+              var actualStatus = data.result || 'UNKNOWN';
+
+              // Store ALL build details in job object
+              job.actualStatus = actualStatus;
+              job.buildNumber = data.number;
+              job.buildUrl = data.url;
+              job.buildTimestamp = data.timestamp;
+
+              // Extract test counts from actions
+              if (data.actions && Array.isArray(data.actions)) {
+                for (var j = 0; j < data.actions.length; j++) {
+                  var action = data.actions[j];
+                  if (action && action.totalCount !== undefined) {
+                    job.totalTests = action.totalCount || 0;
+                    job.failedTests = action.failCount || 0;
+                    job.skippedTests = action.skipCount || 0;
+                    job.passedTests = action.passCount || 0;
+                    break;
+                  }
+                }
+              }
+
+              // Store in global map
+              window.alfredJobsData.set(job.name, job);
+
+              console.log('✓', job.name + ':', actualStatus, '(API) - Build #' + job.buildNumber);
+            } else {
+              console.warn('Could not fetch status for', job.name + ': HTTP', response.status, ', using DOM status:', job.status);
+              // Still store job with DOM-based status
+              window.alfredJobsData.set(job.name, job);
+            }
+          } catch (error) {
+            console.error('Error fetching details for', job.name + ':', error);
+            // Still store job with basic data
+            window.alfredJobsData.set(job.name, job);
+          }
+        }
+
+        // Run after page load
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', function() {
+            repositionDashboard();
+            fetchJobData();
+          });
+        } else {
+          repositionDashboard();
+          fetchJobData();
+        }
+
+        // Also run after a short delay to handle dynamic content
+        setTimeout(function() {
+          repositionDashboard();
+          fetchJobData();
+        }, 100);
+        setTimeout(function() {
+          repositionDashboard();
+        }, 500);
+
+        // Start auto-refresh (120 seconds)
+        function startAutoRefresh() {
+          // Clear existing interval
+          if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+          }
+
+          // Refresh every 120 seconds (2 minutes)
+          autoRefreshInterval = setInterval(function() {
+            console.log('Auto-refreshing stats...');
+            fetchJobData();
+          }, 120000);
+
+          console.log('Auto-refresh started (120 seconds interval)');
+        }
+
+        // Start auto-refresh after initial data load
+        setTimeout(function() {
+          startAutoRefresh();
+        }, 5000);
+
+        // Stop auto-refresh when page is hidden (save resources)
+        document.addEventListener('visibilitychange', function() {
+          if (document.hidden) {
+            if (autoRefreshInterval) {
+              clearInterval(autoRefreshInterval);
+              autoRefreshInterval = null;
+              console.log('Auto-refresh paused (page hidden)');
+            }
+          } else {
+            startAutoRefresh();
+            console.log('Auto-refresh resumed (page visible)');
+          }
+        });
+      })();
+      ]]>
+    </script>
+  </j:if>
+
+  <!-- Inline Test Results for Failed/Unstable Jobs -->
+  <j:if test="${it.shouldShowInlineTestResults()}">
+    <script type="text/javascript">
+      <![CDATA[
+      (function() {
+        console.log('Alfred: Inline Test Results enabled');
+
+        // Helper function to create collapsible test results section
+        function createTestResultsSection(jobRow, jobName, jobUrl) {
+          var resultRow = document.createElement('tr');
+          resultRow.className = 'alfred-test-results-row';
+          resultRow.style.display = 'none';
+
+          var resultCell = document.createElement('td');
+          resultCell.colSpan = '100';
+          resultCell.style.padding = '0';
+          resultCell.style.background = '#f9f9f9';
+          resultCell.style.borderBottom = '1px solid #ddd';
+
+          var contentDiv = document.createElement('div');
+          contentDiv.className = 'alfred-test-results-content';
+          contentDiv.style.padding = '15px 20px';
+          contentDiv.style.margin = '0';
+
+          var headerDiv = document.createElement('div');
+          headerDiv.style.display = 'flex';
+          headerDiv.style.justifyContent = 'space-between';
+          headerDiv.style.alignItems = 'center';
+          headerDiv.style.marginBottom = '12px';
+
+          var titleSpan = document.createElement('span');
+          titleSpan.style.fontWeight = '600';
+          titleSpan.style.fontSize = '13px';
+          titleSpan.style.color = '#333';
+          titleSpan.innerHTML = 'Test Results';
+
+          headerDiv.appendChild(titleSpan);
+
+          var bodyDiv = document.createElement('div');
+          bodyDiv.className = 'alfred-test-results-body';
+          bodyDiv.style.marginTop = '12px';
+          bodyDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #999;">Loading test results...</div>';
+
+          contentDiv.appendChild(headerDiv);
+          contentDiv.appendChild(bodyDiv);
+          resultCell.appendChild(contentDiv);
+          resultRow.appendChild(resultCell);
+
+          return { row: resultRow, bodyDiv: bodyDiv, titleSpan: titleSpan };
+        }
+
+        // Toggle test results visibility
+        function toggleTestResults(resultRow) {
+          if (resultRow.style.display === 'none') {
+            resultRow.style.display = 'table-row';
+          } else {
+            resultRow.style.display = 'none';
+          }
+        }
+
+        // Toggle all test result badges visibility
+        window.toggleAllTestResults = function() {
+          var toggleBtn = document.getElementById('alfred-toggle-tests-btn');
+          var badges = document.querySelectorAll('.alfred-test-badge');
+
+          if (!badges || badges.length === 0) {
+            console.log('No test badges found');
+            return;
+          }
+
+          // Check current state from first badge
+          var isHidden = badges[0].style.display === 'none';
+
+          badges.forEach(function(badge) {
+            if (isHidden) {
+              // Show badges
+              badge.style.display = 'inline-block';
+            } else {
+              // Hide badges
+              badge.style.display = 'none';
+            }
+          });
+
+          // Update button text
+          if (isHidden) {
+            toggleBtn.textContent = '▲ Hide Test Details';
+            toggleBtn.style.background = '#007bff';
+            toggleBtn.style.color = 'white';
+          } else {
+            toggleBtn.textContent = '▼ Show Test Details';
+            toggleBtn.style.background = '#f0f0f0';
+            toggleBtn.style.color = '#333';
+          }
+        };
+
+        // Fetch and render test results
+        async function fetchAndRenderTestResults(jobUrl, bodyDiv, titleSpan) {
+          try {
+            var apiUrl = jobUrl + 'lastCompletedBuild/testReport/api/json?tree=failCount,passCount,skipCount,totalCount,suites[cases[className,name,status,errorDetails,errorStackTrace,age]]';
+            console.log('Fetching test results:', apiUrl);
+
+            var response = await fetch(apiUrl);
+
+            if (!response.ok) {
+              if (response.status === 404) {
+                bodyDiv.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No test results available for this build</div>';
+                titleSpan.innerHTML = '▼ View Test Failures';
+                return;
+              }
+              throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+            }
+
+            var data = await response.json();
+            renderTestResults(data, bodyDiv, titleSpan);
+
+          } catch (error) {
+            console.error('Error fetching test results:', error);
+            bodyDiv.innerHTML = '<div style="padding: 20px; text-align: center; color: #d9534f;">Error loading test results: ' + escapeHtml(error.message) + '</div>';
+          }
+        }
+
+        // Render test results
+        function renderTestResults(data, bodyDiv, titleSpan) {
+          if (!data || data.totalCount === 0) {
+            bodyDiv.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No test results available</div>';
+            titleSpan.innerHTML = '▼ View Test Failures';
+            return;
+          }
+
+          var html = '';
+
+          // Update title
+          titleSpan.innerHTML = '▼ View Test Results';
+
+          // Test Summary
+          html += '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px;">';
+
+          // Total
+          html += '<div style="background: white; border: 1px solid #ddd; border-radius: 3px; padding: 12px; text-align: center;">' +
+            '<div style="font-size: 28px; font-weight: 700; color: #006fe6; font-family: Consolas, monospace;">' + data.totalCount + '</div>' +
+            '<div style="font-size: 11px; color: #777; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-top: 4px;">TOTAL</div>' +
+            '</div>';
+
+          // Passed
+          html += '<div style="background: white; border: 1px solid #ddd; border-radius: 3px; padding: 12px; text-align: center;">' +
+            '<div style="font-size: 28px; font-weight: 700; color: #5cb85c; font-family: Consolas, monospace;">' + data.passCount + '</div>' +
+            '<div style="font-size: 11px; color: #777; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-top: 4px;">PASSED</div>' +
+            '</div>';
+
+          // Failed
+          html += '<div style="background: white; border: 1px solid #ddd; border-radius: 3px; padding: 12px; text-align: center;">' +
+            '<div style="font-size: 28px; font-weight: 700; color: #d9534f; font-family: Consolas, monospace;">' + data.failCount + '</div>' +
+            '<div style="font-size: 11px; color: #777; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-top: 4px;">FAILED</div>' +
+            '</div>';
+
+          // Skipped
+          html += '<div style="background: white; border: 1px solid #ddd; border-radius: 3px; padding: 12px; text-align: center;">' +
+            '<div style="font-size: 28px; font-weight: 700; color: #f0ad4e; font-family: Consolas, monospace;">' + data.skipCount + '</div>' +
+            '<div style="font-size: 11px; color: #777; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-top: 4px;">SKIPPED</div>' +
+            '</div>';
+
+          html += '</div>';
+
+          // Failed Tests Section
+          if (data.failCount > 0 && data.suites && data.suites.length > 0) {
+            html += '<div style="margin-top: 16px;">';
+            html += '<div style="font-size: 13px; font-weight: 600; color: #333; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #ddd;">✗ Failed Tests</div>';
+
+            var failedTests = [];
+            data.suites.forEach(function(suite) {
+              if (suite.cases) {
+                suite.cases.forEach(function(testCase) {
+                  if (testCase.status === 'FAILED' || testCase.status === 'REGRESSION') {
+                    failedTests.push(testCase);
+                  }
+                });
+              }
+            });
+
+            if (failedTests.length > 0) {
+              failedTests.forEach(function(testCase, index) {
+                var testId = 'test-' + Math.random().toString(36).substr(2, 9);
+                var hasStackTrace = testCase.errorStackTrace && testCase.errorStackTrace.trim() !== '';
+
+                html += '<div style="background: white; border: 1px solid #ffcccc; border-left: 3px solid #d9534f; border-radius: 3px; padding: 12px; margin-bottom: 10px;">';
+
+                // Test name and class
+                html += '<div style="font-weight: 600; color: #333; margin-bottom: 6px; font-size: 12px;">' + escapeHtml(testCase.name) + '</div>';
+                html += '<div style="font-size: 11px; color: #666; margin-bottom: 8px; font-family: Consolas, monospace;">' + escapeHtml(testCase.className) + '</div>';
+
+                // Error details
+                if (testCase.errorDetails) {
+                  html += '<div style="background: #fff5f5; padding: 8px; border-radius: 3px; font-size: 12px; color: #d9534f; margin-bottom: 8px; font-family: Consolas, monospace; white-space: pre-wrap; word-break: break-word;">' + escapeHtml(testCase.errorDetails) + '</div>';
+                }
+
+                // Stack trace (collapsible)
+                if (hasStackTrace) {
+                  html += '<div style="margin-top: 8px;">';
+                  html += '<button onclick="document.getElementById(\'' + testId + '\').style.display = document.getElementById(\'' + testId + '\').style.display === \'none\' ? \'block\' : \'none\';" style="background: #f0f0f0; border: 1px solid #ccc; color: #333; padding: 4px 10px; border-radius: 3px; font-size: 11px; cursor: pointer;">▼ View Stack Trace</button>';
+                  html += '<div id="' + testId + '" style="display: none; margin-top: 8px; background: #f9f9f9; padding: 10px; border-radius: 3px; font-size: 11px; font-family: Consolas, monospace; overflow-x: auto; white-space: pre-wrap; word-break: break-all; color: #666;">' + escapeHtml(testCase.errorStackTrace) + '</div>';
+                  html += '</div>';
+                }
+
+                html += '</div>';
+              });
+            } else {
+              html += '<div style="padding: 20px; text-align: center; color: #999;">No detailed failure information available</div>';
+            }
+
+            html += '</div>';
+          } else if (data.failCount === 0) {
+            html += '<div style="margin-top: 16px; padding: 16px; background: white; border: 1px solid #5cb85c; border-radius: 3px; text-align: center; color: #5cb85c; font-weight: 600;">✓ All tests passed!</div>';
+          } else {
+            html += '<div style="margin-top: 16px; padding: 16px; background: white; border: 1px solid #ddd; border-radius: 3px; text-align: center; color: #666;">No test failure details available</div>';
+          }
+
+          bodyDiv.innerHTML = html;
+        }
+
+        // Helper function to escape HTML
+        function escapeHtml(text) {
+          if (!text) return '';
+          var div = document.createElement('div');
+          div.textContent = text;
+          return div.innerHTML;
+        }
+
+        // Process job rows
+        function processJobRows() {
+          console.log('Alfred: Processing job rows for inline test results');
+
+          // Find job table rows - try multiple selectors
+          var jobRows = document.querySelectorAll('table#projectstatus tr[id^="job_"], #projectstatus tbody tr');
+
+          console.log('Alfred: Found ' + jobRows.length + ' job rows');
+
+          jobRows.forEach(function(row) {
+            try {
+              // Skip if this is already a test results row
+              if (row.className && row.className.includes('alfred-test-results-row')) {
+                return;
+              }
+
+              // Get job link
+              var jobLink = row.querySelector('a.model-link, a[href*="/job/"]');
+              if (!jobLink) return;
+
+              var jobName = jobLink.textContent.trim();
+              var jobUrl = jobLink.href;
+
+              // Skip if not a valid job link
+              if (!jobUrl.includes('/job/')) return;
+
+              // Check job status - look for failed or unstable indicators
+              // Try multiple selectors to match different Jenkins versions
+              var statusCell = row.querySelector('td:first-child');
+              var isFailed = row.querySelector('.icon-red, img[src*="red"], img[tooltip*="Failed"], img[tooltip*="failed"], svg[tooltip*="Failed"], svg[tooltip*="failed"], [class*="red"], [class*="failed"]');
+              var isUnstable = row.querySelector('.icon-yellow, img[src*="yellow"], img[tooltip*="Unstable"], img[tooltip*="unstable"], svg[tooltip*="Unstable"], svg[tooltip*="unstable"], [class*="yellow"], [class*="unstable"]');
+
+              // Debug: Log what we found
+              if (!isFailed && !isUnstable && statusCell) {
+                var allIcons = statusCell.querySelectorAll('svg, img, span[class*="icon"]');
+                if (allIcons.length > 0) {
+                  console.log('Alfred: Job', jobName, '- found icons:', Array.from(allIcons).map(function(icon) {
+                    return {
+                      tag: icon.tagName,
+                      class: icon.className,
+                      tooltip: icon.getAttribute('tooltip'),
+                      title: icon.getAttribute('title'),
+                      src: icon.getAttribute('src')
+                    };
+                  }));
+                }
+              }
+
+              if (isFailed || isUnstable) {
+                // Check if this row already has a badge (avoid duplicates)
+                var clickableCell = row.querySelector('td:first-child');
+                if (clickableCell && clickableCell.querySelector('.alfred-test-badge')) {
+                  console.log('Alfred: Skipping job (already processed):', jobName);
+                  return; // Already processed, skip
+                }
+
+                console.log('Alfred: Adding test results for job:', jobName, '(failed:', !!isFailed, ', unstable:', !!isUnstable, ')');
+
+                // Create test results section
+                var testSection = createTestResultsSection(row, jobName, jobUrl);
+
+                // Insert the test result row immediately after the current job row
+                // Use insertAdjacentElement for direct, reliable insertion
+                row.insertAdjacentElement('afterend', testSection.row);
+
+                console.log('Alfred: Inserted test result row for job:', jobName, '(using insertAdjacentElement afterend)');
+
+                // Make the job row clickable to toggle test results
+                if (clickableCell) {
+                  clickableCell.style.cursor = 'pointer';
+
+                  // Add visual indicator badge
+                  var badge = document.createElement('span');
+                  badge.className = 'alfred-test-badge';
+                  badge.textContent = '▼ View Tests';
+                  badge.style.cssText = 'display: none; background: #007bff; color: white; font-size: 10px; padding: 3px 8px; border-radius: 3px; margin-left: 8px; font-weight: 600; cursor: pointer; transition: all 150ms ease;';
+                  badge.onmouseover = function() {
+                    this.style.background = '#0056b3';
+                  };
+                  badge.onmouseout = function() {
+                    this.style.background = '#007bff';
+                  };
+                  clickableCell.appendChild(badge);
+
+                  clickableCell.onclick = function(e) {
+                    // Don't toggle if clicking on a link
+                    if (e.target.tagName !== 'A' && !e.target.closest('a')) {
+                      toggleTestResults(testSection.row);
+
+                      // Update badge text
+                      if (testSection.row.style.display === 'none') {
+                        badge.textContent = '▼ View Tests';
+                      } else {
+                        badge.textContent = '▲ Hide Tests';
+                      }
+
+                      // Load test results on first expand
+                      if (testSection.row.style.display !== 'none' && testSection.bodyDiv.innerHTML.indexOf('Loading') !== -1) {
+                        fetchAndRenderTestResults(jobUrl, testSection.bodyDiv, testSection.titleSpan);
+                      }
+                    }
+                  };
+                }
+              }
+            } catch (error) {
+              console.error('Alfred: Error processing job row:', error);
+            }
+          });
+        }
+
+        // Run after page load
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', processJobRows);
+        } else {
+          processJobRows();
+        }
+
+        // Also run after a short delay to handle dynamic content
+        setTimeout(processJobRows, 500);
+        setTimeout(processJobRows, 1000);
+
+      })();
+      ]]>
+    </script>
+  </j:if>
+</j:jelly>

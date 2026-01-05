@@ -1,0 +1,110 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define"
+         xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+  <l:layout title="Alfred Failure Analysis - ${it.build.displayName}" norefresh="true">
+    <st:include page="sidepanel.jelly" it="${it.build}"/>
+    <l:main-panel>
+      <h1>Alfred Failure Analysis</h1>
+
+      <j:set var="result" value="${it.analysisResult}"/>
+      <j:set var="aggregated" value="${it.aggregatedAnalysis}"/>
+
+      <!-- Summary Section -->
+      <div style="background: linear-gradient(135deg, #fff5f5 0%, #ffe5e5 100%); border: 1px solid #ffcccc; border-radius: 5px; padding: 20px; margin-bottom: 20px;">
+        <h2 style="margin-top: 0;">Summary</h2>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; text-align: center;">
+          <div>
+            <div style="font-size: 36px; font-weight: bold; color: #333;">${result.totalTests}</div>
+            <div style="font-size: 12px; color: #666; text-transform: uppercase;">Total Tests</div>
+          </div>
+          <div>
+            <div style="font-size: 36px; font-weight: bold; color: #5cb85c;">${result.passedTests}</div>
+            <div style="font-size: 12px; color: #666; text-transform: uppercase;">Passed</div>
+          </div>
+          <div>
+            <div style="font-size: 36px; font-weight: bold; color: #d9534f;">${result.failedTests}</div>
+            <div style="font-size: 12px; color: #666; text-transform: uppercase;">Failed</div>
+          </div>
+          <div>
+            <div style="font-size: 36px; font-weight: bold; color: #f0ad4e;">${result.skippedTests}</div>
+            <div style="font-size: 12px; color: #666; text-transform: uppercase;">Skipped</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Failure Categories -->
+      <j:if test="${result.failedTests > 0}">
+        <h2>Failure Categories</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px;">
+          <j:forEach var="category" items="${result.failuresByCategory.keySet()}">
+            <j:set var="count" value="${result.getFailureCountForCategory(category)}"/>
+            <j:if test="${count > 0}">
+              <div style="background: white; border: 1px solid #d9d9d9; border-left: 3px solid #d9534f; border-radius: 5px; padding: 15px;">
+                <div style="font-size: 11px; font-weight: 600; color: #555; margin-bottom: 8px; text-transform: uppercase;">
+                  ${category.displayName}
+                </div>
+                <div style="font-size: 32px; font-weight: bold; color: #d9534f;">
+                  ${count}
+                </div>
+              </div>
+            </j:if>
+          </j:forEach>
+        </div>
+
+        <!-- Detailed Failures by Category -->
+        <j:forEach var="entry" items="${result.failuresByCategory.entrySet()}">
+          <j:if test="${!entry.value.isEmpty()}">
+            <h3 style="margin-top: 30px;">${entry.key.displayName} (${entry.value.size()})</h3>
+            <j:forEach var="failure" items="${entry.value}">
+              <div style="background: white; border: 1px solid #d9d9d9; border-left: 3px solid #d9534f; border-radius: 5px; padding: 15px; margin-bottom: 15px;">
+                <div style="font-weight: 600; color: #333; margin-bottom: 5px;">
+                  ${failure.testName}
+                </div>
+                <div style="font-size: 11px; color: #777; font-family: monospace; margin-bottom: 10px;">
+                  ${failure.className}
+                </div>
+                <j:if test="${failure.errorDetails != null}">
+                  <div style="background: #fcf8e3; color: #8a6d3b; padding: 10px; border-radius: 3px; font-size: 12px; font-family: monospace; white-space: pre-wrap; border: 1px solid #faebcc;">
+                    ${failure.errorDetails}
+                  </div>
+                </j:if>
+                <j:if test="${failure.age > 1}">
+                  <div style="margin-top: 10px; font-size: 11px; color: #d9534f;">
+                    ⚠️ Failing for ${failure.age} builds
+                  </div>
+                </j:if>
+              </div>
+            </j:forEach>
+          </j:if>
+        </j:forEach>
+
+        <!-- Failed API Endpoints -->
+        <j:if test="${!result.failedApiEndpoints.isEmpty()}">
+          <h3 style="margin-top: 30px;">Failed API Endpoints</h3>
+          <table style="width: 100%; border-collapse: collapse; background: white;">
+            <thead>
+              <tr style="background: #f4f4f8; border-bottom: 2px solid #d9d9d9;">
+                <th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase; color: #666;">Endpoint</th>
+                <th style="padding: 12px; text-align: center; font-size: 12px; text-transform: uppercase; color: #666; width: 100px;">Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              <j:forEach var="apiEntry" items="${result.failedApiEndpoints.entrySet()}">
+                <tr style="border-bottom: 1px solid #e9e9e9;">
+                  <td style="padding: 12px; font-family: monospace; font-size: 12px;">${apiEntry.key}</td>
+                  <td style="padding: 12px; text-align: center; font-weight: bold; color: #d9534f;">${apiEntry.value}</td>
+                </tr>
+              </j:forEach>
+            </tbody>
+          </table>
+        </j:if>
+      </j:if>
+
+      <j:if test="${result.failedTests == 0}">
+        <div style="background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 20px; border-radius: 5px; text-align: center; font-size: 16px;">
+          ✅ All tests passed successfully!
+        </div>
+      </j:if>
+    </l:main-panel>
+  </l:layout>
+</j:jelly>

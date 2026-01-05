@@ -1,0 +1,4 @@
+<?jelly escape-by-default='true'?>
+<div>
+  Alfred Job Analyzer - Enhanced Jenkins job analysis and failure pattern detection plugin
+</div>

@@ -1,0 +1,26 @@
+<div>
+  <p>
+    Enable the Alfred Dashboard to display aggregated job statistics at the top of this view.
+  </p>
+  <p>
+    <strong>The dashboard shows:</strong>
+  </p>
+  <ul>
+    <li>Total number of jobs in the view</li>
+    <li>Count of successful, failed, and unstable jobs</li>
+    <li>Aggregated test failure analysis with categorization</li>
+    <li>Top failure categories across all jobs</li>
+  </ul>
+  <p>
+    <strong>Configuration via Job DSL:</strong>
+  </p>
+  <pre>
+listView('my-view') {
+  properties {
+    alfredDashboard {
+      enabled(true)
+    }
+  }
+}
+  </pre>
+</div>
